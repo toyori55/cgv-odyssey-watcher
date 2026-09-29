@@ -52,9 +52,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           # 감시할 극장들. "극장코드:표시이름" 을 쉼표로 나열한다.
-          CGV_SITES: "0074:CGV 왕십리,0013:CGV 용산아이파크몰"
-          CGV_MOV_NO: "30001323"
-          CGV_MOV_NAME: "오디세이"
+          CGV_SITES: "0054:CGV 일산,0013:CGV 용산아이파크몰"
+          CGV_MOV_NO: "30001166"
+          CGV_MOV_NAME: "극장판 치이카와-인어 섬의 비밀"
           CGV_LOOP_INTERVAL: "60"
           CGV_LOOP_DURATION_MIN: "340"
           CGV_TEST_ALERT: ${{ inputs.test_alert && '1' || '0' }}
