@@ -272,7 +272,7 @@ def check_site(session, site_no, site_name, st):
         return
 
     known = set(st["known_dates"])
-    new_dates = [d for d in dates if d not in known]
+    new_dates = [d for d in dates if d not in known and d == "20261003"]
 
     if new_dates:
         log(f"[{site_name}] 🔔 신규 예매일 {len(new_dates)}개: {', '.join(new_dates)}")
