@@ -272,26 +272,58 @@ def check_site(session, site_no, site_name, st):
         return
 
     known = set(st["known_dates"])
-    new_dates = [d for d in dates if d not in known and d == "20261003"]
+    target_date = "20261003"
+    new_dates = [d for d in dates if d not in known and d == target_date]
 
+    # 10/3의 현재 상영 회차를 "상영관 + 시작시간"으로 구별해서 기억한다.
+    target_rows = fetch_showtimes(session, site_no, target_date) if target_date in dates else []
+    current_showtimes = {
+        f"{r.get('expoScnsNm') or r.get('scnsNm') or '상영관'}|{r.get('scnsrtTm') or ''}"
+        for r in target_rows
+        if r.get("scnsrtTm")
+    }
+
+    previous_showtimes = set(st.get("known_showtimes_20261003", []))
+    added_showtimes = current_showtimes - previous_showtimes
+
+    # 10/3 날짜가 처음 열렸을 때
     if new_dates:
-        log(f"[{site_name}] 🔔 신규 예매일 {len(new_dates)}개: {', '.join(new_dates)}")
-        header = (f"🔔 새 예매일이 열렸습니다! ({len(new_dates)}일)\n"
+        log(f"[{site_name}] 🔔 10/3 예매 오픈")
+        header = (f"🔔 10월 3일 예매가 열렸습니다!\n"
                   f"🏛 {site_name}\n🎬 {MOV_NAME}")
-        blocks = [f"📅 {fmt_date(y)}\n{fmt_showtimes(fetch_showtimes(session, site_no, y))}"
-                  for y in new_dates]
+        blocks = [f"📅 {fmt_date(target_date)}\n{fmt_showtimes(target_rows)}"]
         msgs = build_messages(header, blocks)
+
         for i, msg in enumerate(msgs):
             if i:
-                time.sleep(1.2)  # 텔레그램 초당 전송 제한 회피
+                time.sleep(1.2)
             if not send_telegram(msg, buttons=ALERT_BUTTONS):
-                # 전송 실패 시 기준선을 갱신하지 않아 다음 회차에 재시도된다.
-                log(f"[{site_name}] 전송 실패 — 기준선 미갱신, 다음 회차에 재시도")
+                log(f"[{site_name}] 전송 실패 — 다음 회차에 재시도")
                 return
+
+    # 이미 10/3이 열려 있고, 나중에 새로운 회차가 추가된 경우
+    elif target_date in dates and previous_showtimes and added_showtimes:
+        new_rows = [
+            r for r in target_rows
+            if f"{r.get('expoScnsNm') or r.get('scnsNm') or '상영관'}|{r.get('scnsrtTm') or ''}"
+            in added_showtimes
+        ]
+
+        log(f"[{site_name}] 🔔 신규 상영회차 {len(added_showtimes)}개")
+        msg = (f"🔔 새로운 상영회차가 추가됐습니다!\n"
+               f"🏛 {site_name}\n🎬 {MOV_NAME}\n\n"
+               f"📅 {fmt_date(target_date)}\n"
+               f"{fmt_showtimes(new_rows)}")
+
+        if not send_telegram(msg, buttons=ALERT_BUTTONS):
+            log(f"[{site_name}] 전송 실패 — 다음 회차에 재시도")
+            return
+
     else:
         log(f"[{site_name}] 변화 없음 ({len(dates)}일, 마지막 {dates[-1] if dates else '-'})")
 
     st["known_dates"] = dates
+    st["known_showtimes_20261003"] = sorted(current_showtimes)
 
 
 def run_once(session):
