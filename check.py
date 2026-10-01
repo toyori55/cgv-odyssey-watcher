@@ -328,14 +328,29 @@ def check_site(session, site_no, site_name, st):
 
 def run_once(session):
     state = load_state()
+
     for site_no, site_name in SITES:
         st = state["sites"].setdefault(site_no, {})
         try:
             check_site(session, site_no, site_name, st)
         except Exception as e:
             log(f"[{site_name}] 예상치 못한 오류: {type(e).__name__}: {e}")
+
     state["last_checked"] = datetime.now(KST).isoformat(timespec="seconds")
     save_state(state)
+
+    # 모든 감시 극장이 5회 이상 연속으로 조회에 실패하면
+    # 현재 GitHub Actions 실행을 종료한다.
+    # 그러면 대기 중인 다음 scheduled workflow가 새 runner에서 이어받는다.
+    all_sites_failed = all(
+        state["sites"].get(site_no, {}).get("consecutive_failures", 0) >= 5
+        for site_no, _ in SITES
+    )
+
+    if all_sites_failed:
+        log("⚠️ 모든 감시 극장이 5회 이상 연속 조회 실패 — 현재 실행을 종료합니다.")
+        return 2
+
     return 0
 
 
@@ -425,7 +440,9 @@ def main():
             session = requests.Session(impersonate="chrome")
             log(f"({n}회차) 연결 갱신")
         try:
-            run_once(session)
+            rc = run_once(session)
+            if rc == 2:
+                return 2
         except Exception as e:  # 루프 자체는 절대 죽지 않게
             log(f"예상치 못한 오류: {type(e).__name__}: {e}")
         if time.monotonic() + interval > deadline:
